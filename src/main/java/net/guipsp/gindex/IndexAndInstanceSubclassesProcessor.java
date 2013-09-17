@@ -8,7 +8,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.tools.Diagnostic;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.HashMap;
@@ -20,7 +19,7 @@ import java.util.Set;
 @SupportedAnnotationTypes("net.guipsp.gindex.IndexAndInstanceSubclasses")
 public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 
-	private Map<String, List<String>> indexmap = new HashMap<String, List<String>>();
+	private Map<String, SubclassList> indexmap = new HashMap<String, SubclassList>();
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -49,17 +48,21 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 				}
 			}
 		} else {
-			for (String key : indexmap.keySet()) {
+			for (Map.Entry<String, SubclassList> key : indexmap.entrySet()) {
 				try {
-					BufferedWriter writer = new BufferedWriter(processingEnv.getFiler().createSourceFile("key").openWriter());
+					BufferedWriter writer = new BufferedWriter(processingEnv.getFiler().createSourceFile(key.getKey()).openWriter());
 
-					if (key.contains(".")) {
-						String[] parts = key.split("\\.(?=[^\\.]+$)");//Split into package and class
-						key = parts[1];
+					String name;
+
+					if (key.getKey().contains(".")) {
+						String[] parts = key.getKey().split("\\.(?=[^\\.]+$)");//Split into package and class
+						name = parts[1];
 
 						writer.write("package ");
 						writer.write(parts[0]);
 						writer.newLine();
+					} else {
+						name = key.getKey();
 					}
 
 					writer.write("//THIS IS AN AUTOMATICALLY GENERATED FILE");
@@ -67,16 +70,24 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 					writer.write("//DO NOT MANUALLY EDIT");
 					writer.newLine();
 					writer.write("public class ");
-					writer.write(key);
+					writer.write(name);
 					writer.write("{");
 					writer.newLine();
-					writer.write("public static final String[] INDEX = {");
+					writer.write("public static final ");
+					writer.write(key.getKey());
+					writer.write("[] INDEX = {");
 					writer.newLine();
-					for (String file : indexmap.get(key)) {
-						writer.write("\"");
-						writer.write(key);
-						writer.write(",\"");
-						writer.newLine();
+					{
+						int i = 0;
+						for (String file : key.getValue().subclasses) {
+							writer.write("new ");
+							writer.write(file);
+							writer.write("(");
+							writer.write(i);
+							writer.write("),");
+							writer.newLine();
+							i++;
+						}
 					}
 					writer.write("}");
 					writer.newLine();
@@ -87,5 +98,15 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 			}
 		}
 		return true;
+	}
+
+	private static class SubclassList {
+		public final String superclass;
+		public final List<String> subclasses;
+
+		private SubclassList(String superclass, List<String> subclasses) {
+			this.superclass = superclass;
+			this.subclasses = subclasses;
+		}
 	}
 }
