@@ -24,7 +24,6 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "lel");
 		if (!roundEnv.processingOver()) {
 			for (TypeElement t : annotations) {
 				for (Element e : roundEnv.getElementsAnnotatedWith(t)) {
@@ -48,7 +47,6 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 
 					}
 				}
-				processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, t.getSimpleName().toString());
 			}
 		} else {
 			for (String key : indexmap.keySet()) {
