@@ -50,7 +50,7 @@
 						<goals>
 							<goal>process-test</goal>
 						</goals>
-						<phase>process-test-sources</phase>
+						<phase>generate-test-sources</phase>
 						<configuration>
 							<processors>
 								<processor>net.guipsp.gindex.IndexAndInstanceSubclassesProcessor</processor>

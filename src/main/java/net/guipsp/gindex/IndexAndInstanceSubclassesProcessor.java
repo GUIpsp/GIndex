@@ -6,48 +6,45 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 @SupportedAnnotationTypes("net.guipsp.gindex.IndexAndInstanceSubclasses")
 public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 
 	private Map<String, SubclassList> indexmap = new HashMap<String, SubclassList>();
+	private List<Element> roots = new LinkedList<Element>();//This probably isn't best practice... whatever
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 		if (!roundEnv.processingOver()) {
 			for (TypeElement t : annotations) {
 				for (Element e : roundEnv.getElementsAnnotatedWith(t)) {
-
-					if (!(e instanceof TypeElement)) {
-						continue;
-					}
-
-					final TypeElement te = (TypeElement) e;
-
-					if (t.getKind() != ElementKind.ANNOTATION_TYPE) {
-						break;
-					}
-					for (Element re : roundEnv.getRootElements()) {
-
-						if (!(re instanceof TypeElement)) {
-							continue;
-						}
-
-						final TypeElement tre = (TypeElement) re;
-
-					}
+					String file = e.getAnnotation(IndexAndInstanceSubclasses.class).value();
+					indexmap.put(file, new SubclassList((TypeElement) e));
+					roots.addAll(roundEnv.getRootElements());
 				}
 			}
 		} else {
+			{
+				Collection<SubclassList> subclassLists = indexmap.values();//This needs optimization
+				final Types types = processingEnv.getTypeUtils();
+				for (Element re : roots) {
+					for (TypeMirror t : types.directSupertypes(re.asType())) {
+						for (SubclassList subclassList : subclassLists) {
+							if (types.isSameType(t, subclassList.superclass.asType())) {
+								subclassList.subclasses.add((TypeElement) re);
+							}
+						}
+					}
+				}
+			}
+
 			for (Map.Entry<String, SubclassList> key : indexmap.entrySet()) {
 				try {
 					BufferedWriter writer = new BufferedWriter(processingEnv.getFiler().createSourceFile(key.getKey()).openWriter());
@@ -60,6 +57,7 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 
 						writer.write("package ");
 						writer.write(parts[0]);
+						writer.write(";");
 						writer.newLine();
 					} else {
 						name = key.getKey();
@@ -74,24 +72,31 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 					writer.write("{");
 					writer.newLine();
 					writer.write("public static final ");
-					writer.write(key.getKey());
+					writer.write(key.getValue().superclass.getQualifiedName().toString());
 					writer.write("[] INDEX = {");
 					writer.newLine();
 					{
+						Collections.sort(key.getValue().subclasses, new Comparator<TypeElement>() {
+							@Override
+							public int compare(TypeElement o1, TypeElement o2) {
+								return o1.getQualifiedName().toString().compareTo(o2.getQualifiedName().toString());
+							}
+						});
 						int i = 0;
-						for (String file : key.getValue().subclasses) {
+						for (TypeElement file : key.getValue().subclasses) {
 							writer.write("new ");
-							writer.write(file);
+							writer.write(file.getQualifiedName().toString());
 							writer.write("(");
-							writer.write(i);
+							writer.write("" + i);
 							writer.write("),");
 							writer.newLine();
 							i++;
 						}
 					}
-					writer.write("}");
+					writer.write("};");
 					writer.newLine();
 					writer.write("}");
+					writer.close();
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
@@ -101,12 +106,12 @@ public class IndexAndInstanceSubclassesProcessor extends AbstractProcessor {
 	}
 
 	private static class SubclassList {
-		public final String superclass;
-		public final List<String> subclasses;
+		public final TypeElement superclass;
+		public final List<TypeElement> subclasses;
 
-		private SubclassList(String superclass, List<String> subclasses) {
+		private SubclassList(TypeElement superclass) {
 			this.superclass = superclass;
-			this.subclasses = subclasses;
+			this.subclasses = new LinkedList<TypeElement>();
 		}
 	}
 }
