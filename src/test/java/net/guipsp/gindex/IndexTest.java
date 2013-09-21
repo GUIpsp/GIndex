@@ -12,6 +12,6 @@ public class IndexTest {
 
 	@Test
 	public void count() {
-		assertThat("Unexpected number of classes indexed", index.INDEX.length, is(3));
+		assertThat("Unexpected number of classes indexed", index.INDEX.length, is(2));
 	}
 }
